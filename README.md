@@ -166,14 +166,17 @@ All configuration is managed using environment variables via a `.env` file. A sa
 ## Setup Steps
 1. Clone the repository
 2. Ensure the `.env` file is fully populated (refer template).
-3. Place the json file in right path.
-3. Build and start containers:
+3. Add the JSON file to data/raw/ in the project root and confirm that 'DATA_PATH' points to this file.
+4. Build and start containers:
    ```bash
    docker-compose up --build
    ```
-4. Verify all four containers are running.
-5. Open Airflow UI at `http://localhost:8080`
-6. Enable and run the `user_activity_pipeline` DAG
+5. Verify all four containers are running (airflow-init exits after setup).
+6. Open Airflow UI at `http://localhost:8080` .
+7. Enable and run the `user_activity_pipeline` DAG manually if required.
+   <img width="1426" height="556" alt="image" src="https://github.com/user-attachments/assets/d1c701d6-d2fb-4acc-a30d-40cbe5dd2faf" />
+
+   
 
 ---
 
