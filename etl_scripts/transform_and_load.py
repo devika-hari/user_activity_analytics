@@ -3,8 +3,6 @@ from etl_scripts.logging_config import setup_logging
 import logging
 from sqlalchemy import create_engine,text
 from sqlalchemy.exc import SQLAlchemyError
-import json
-import pandas as pd
 
 # Setup logging
 setup_logging()
@@ -17,27 +15,8 @@ engine = create_engine(DB_URI)
 def run_dq_checks(conn):
     """
     Runs post-load data quality checks
-    Logs informational diagnostics without failing the pipeline
     """
     logger.debug("Running post-load data quality checks")
-
-    # Records skipped due to missing timestamp
-    missing_ts_count = conn.execute(
-        text("""
-            SELECT COUNT(*)
-            FROM staging.stg_logs
-            WHERE is_processed IS FALSE
-              AND timestamp IS NULL;
-        """)
-    ).scalar()
-
-    if missing_ts_count > 0:
-        logger.debug(
-            f"{missing_ts_count} records were skipped from fact load due to NULL timestamp. They will be marked as processed."
-        )
-    else:
-        logger.debug("No records with NULL timestamp found after processing")
-
     # Safety check: NULLs in fact (should never happen)
     null_fact_keys = conn.execute(
         text("""
@@ -94,7 +73,7 @@ def run_transform_and_load():
                 FROM staging.stg_logs s
                 JOIN marts.dim_users u ON s.user_id = u.user_id
                 JOIN marts.dim_actions a ON s.action_type = a.action_type
-                WHERE s.is_processed IS FALSE AND s.timestamp IS NOT NULL;;
+                WHERE s.is_processed IS FALSE;
             """))
 
             run_dq_checks(conn)
