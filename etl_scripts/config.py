@@ -48,5 +48,5 @@ def get_env(name: str) -> str:
 
 validate_env()
 # Change the inner double quotes to single quotes
-DB_URI = f"postgresql://{get_env('DB_USER')}:{get_env('DB_PASSWORD')}@localhost:5433/user_activity_analytics"
+DB_URI = f"postgresql://{get_env('DB_USER')}:{get_env('DB_PASSWORD')}@{get_env('DB_HOST')}:{get_env('DB_PORT')}/user_activity_analytics"
 
