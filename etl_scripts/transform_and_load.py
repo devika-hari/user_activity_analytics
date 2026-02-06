@@ -1,5 +1,5 @@
-from config import get_env
-from logging_config import setup_logging
+from etl_scripts.config import get_env,DB_URI
+from etl_scripts.logging_config import setup_logging
 import logging
 from sqlalchemy import create_engine,text
 from sqlalchemy.exc import SQLAlchemyError
@@ -12,8 +12,47 @@ logger = logging.getLogger(__name__)
 
 
 # DB config
-DB_URI = get_env("DB_URI")
 engine = create_engine(DB_URI)
+
+def run_dq_checks(conn):
+    """
+    Runs post-load data quality checks
+    Logs informational diagnostics without failing the pipeline
+    """
+    logger.debug("Running post-load data quality checks")
+
+    # Records skipped due to missing timestamp
+    missing_ts_count = conn.execute(
+        text("""
+            SELECT COUNT(*)
+            FROM staging.stg_logs
+            WHERE is_processed IS FALSE
+              AND timestamp IS NULL;
+        """)
+    ).scalar()
+
+    if missing_ts_count > 0:
+        logger.debug(
+            f"{missing_ts_count} records were skipped from fact load due to NULL timestamp. They will be marked as processed."
+        )
+    else:
+        logger.debug("No records with NULL timestamp found after processing")
+
+    # Safety check: NULLs in fact (should never happen)
+    null_fact_keys = conn.execute(
+        text("""
+            SELECT COUNT(*)
+            FROM marts.fact_user_actions
+            WHERE event_timestamp IS NULL OR user_key IS NULL OR action_key IS NULL;
+        """)
+    ).scalar()
+
+    if null_fact_keys > 0:
+        logger.debug(
+            f"DQ WARNING: {null_fact_keys} fact records have NULL event_timestamp/ user_key/action_key"
+        )
+    else:
+        logger.debug("DQ PASSED: No NULL event_timestamp/ user_key/action_key in fact_user_actions")
 
 def run_transform_and_load():
     """Moves data from staging.stg_logs to marts schema"""
@@ -42,6 +81,7 @@ def run_transform_and_load():
             """))
 
             # Load fact_user_actions by joining staging to the dimensions
+            #Exclude NULL timestamps from fact
             logger.debug("Loading fact_user_actions...")
             conn.execute(text("""
                 INSERT INTO marts.fact_user_actions (user_key, action_key, event_timestamp, device, location)
@@ -54,8 +94,10 @@ def run_transform_and_load():
                 FROM staging.stg_logs s
                 JOIN marts.dim_users u ON s.user_id = u.user_id
                 JOIN marts.dim_actions a ON s.action_type = a.action_type
-                WHERE s.is_processed IS FALSE;
+                WHERE s.is_processed IS FALSE AND s.timestamp IS NOT NULL;;
             """))
+
+            run_dq_checks(conn)
 
             # Mark records as processed in staging
             logger.debug("Marking staging records as processed")
