@@ -16,6 +16,8 @@ REQUIRED_ENV_VARS = [
     "DEBUG_LOG_PATH",
     "DB_USER",
     "DB_PASSWORD",
+    "DB_HOST",
+    "DB_PORT",
     "AIRFLOW_DB_USER",
     "AIRFLOW_DB_PASSWORD"
 ]

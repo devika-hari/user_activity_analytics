@@ -37,9 +37,9 @@ def clean_records(raw_data: list) -> pd.DataFrame:
 
     for record in raw_data:
         # Skip missing mandatory fields
-        if not record.get("user_id") or not record.get("action_type"):
+        if not record.get("user_id") or not record.get("action_type") or not record.get("timestamp"):
             record["error_reason"] = "Missing user_id or action_type"
-            logger.debug(f"Skipping record: {record}  due to missing user_id or action_type")
+            logger.debug(f"Skipping record: {record}  due to missing user_id or action_type or timestamp")
             bad_records.append(record)
             continue
 
@@ -72,7 +72,6 @@ def clean_records(raw_data: list) -> pd.DataFrame:
         logger.debug(f"Wrote {len(bad_records)} bad records to {ERROR_RECORDS}")
 
     df = pd.DataFrame(cleaned)
-    df = df.where(pd.notna(df), None)
     logger.debug(f"Cleaned {len(df)} valid records out of {len(raw_data)}")
     return df
 

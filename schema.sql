@@ -39,7 +39,7 @@ CREATE SCHEMA IF NOT EXISTS marts AUTHORIZATION etl_user;
 CREATE TABLE IF NOT EXISTS staging.stg_logs
 (
     user_id text NOT NULL,
-    "timestamp" timestamp without time zone,
+    "timestamp" timestamp without time zone NOT NULL,
     action_type text NOT NULL,
     device text ,
     location text,
