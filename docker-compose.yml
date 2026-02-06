@@ -1,0 +1,130 @@
+version: "3.8"
+
+services:
+  analytics-db:
+    image: postgres:15
+    container_name: analytics-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      # Initialize both the analytics and Airflow metadata databases, schemas, and tables
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  airflow-init:
+    build: .
+    image: user-activity-airflow:latest
+    depends_on:
+      analytics-db:
+        condition: service_healthy
+    environment:
+      # Airflow core
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__RBAC: "true"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow_user:airflow_password@analytics-db:5432/airflow
+      # ETL / analytics DB config
+      DB_USER: etl_user
+      DB_PASSWORD: etl_password
+      DB_HOST: analytics-db
+      DB_PORT: "5432"
+      # Logging and data paths used by etl_scripts
+      DATA_PATH: /opt/airflow/data/raw/user_activity.json
+      PROCESSED_PATH: /opt/airflow/data/processed
+      ERROR_RECORDS: /opt/airflow/data/error/error_records.json
+      ERROR_LOG_PATH: /opt/airflow/logs/etl/error.log
+      DEBUG_LOG_PATH: /opt/airflow/logs/etl/debug.log
+      # Airflow DB credentials (mirrors schema.sql)
+      AIRFLOW_DB_USER: airflow_user
+      AIRFLOW_DB_PASSWORD: airflow_password
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./etl_scripts:/opt/airflow/etl_scripts
+      - ./data:/opt/airflow/data
+      - ./logs:/opt/airflow/logs
+    entrypoint: >
+      /bin/bash -c "airflow db upgrade &&
+      airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true"
+
+  airflow-webserver:
+    build: .
+    image: user-activity-airflow:latest
+    container_name: airflow-webserver
+    depends_on:
+      analytics-db:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__RBAC: "true"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow_user:airflow_password@analytics-db:5432/airflow
+      DB_USER: etl_user
+      DB_PASSWORD: etl_password
+      DB_HOST: analytics-db
+      DB_PORT: "5432"
+      DATA_PATH: /opt/airflow/data/raw/user_activity.json
+      PROCESSED_PATH: /opt/airflow/data/processed
+      ERROR_RECORDS: /opt/airflow/data/error/error_records.json
+      ERROR_LOG_PATH: /opt/airflow/logs/etl/error.log
+      DEBUG_LOG_PATH: /opt/airflow/logs/etl/debug.log
+      AIRFLOW_DB_USER: airflow_user
+      AIRFLOW_DB_PASSWORD: airflow_password
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./etl_scripts:/opt/airflow/etl_scripts
+      - ./data:/opt/airflow/data
+      - ./logs:/opt/airflow/logs
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  airflow-scheduler:
+    build: .
+    image: user-activity-airflow:latest
+    container_name: airflow-scheduler
+    depends_on:
+      analytics-db:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow_user:airflow_password@analytics-db:5432/airflow
+      DB_USER: etl_user
+      DB_PASSWORD: etl_password
+      DB_HOST: analytics-db
+      DB_PORT: "5432"
+      DATA_PATH: /opt/airflow/data/raw/user_activity.json
+      PROCESSED_PATH: /opt/airflow/data/processed
+      ERROR_RECORDS: /opt/airflow/data/error/error_records.json
+      ERROR_LOG_PATH: /opt/airflow/logs/etl/error.log
+      DEBUG_LOG_PATH: /opt/airflow/logs/etl/debug.log
+      AIRFLOW_DB_USER: airflow_user
+      AIRFLOW_DB_PASSWORD: airflow_password
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./etl_scripts:/opt/airflow/etl_scripts
+      - ./data:/opt/airflow/data
+      - ./logs:/opt/airflow/logs
+    command: scheduler
+
+volumes:
+  db_data:
+
