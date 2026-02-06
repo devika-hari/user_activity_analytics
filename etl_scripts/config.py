@@ -14,7 +14,10 @@ REQUIRED_ENV_VARS = [
     "ERROR_RECORDS",
     "ERROR_LOG_PATH",
     "DEBUG_LOG_PATH",
-    "DB_URI"
+    "DB_USER",
+    "DB_PASSWORD",
+    "AIRFLOW_DB_USER",
+    "AIRFLOW_DB_PASSWORD"
 ]
 
 
@@ -44,3 +47,6 @@ def get_env(name: str) -> str:
     return os.environ[name]
 
 validate_env()
+# Change the inner double quotes to single quotes
+DB_URI = f"postgresql://{get_env('DB_USER')}:{get_env('DB_PASSWORD')}@localhost:5433/user_activity_analytics"
+

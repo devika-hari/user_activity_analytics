@@ -1,7 +1,7 @@
 # logging_config.py
 import logging
 from logging.handlers import RotatingFileHandler
-from config import get_env, validate_env
+from etl_scripts.config import get_env, validate_env
 import os
 
 def setup_logging():
