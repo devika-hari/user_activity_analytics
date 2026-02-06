@@ -67,6 +67,7 @@ def clean_records(raw_data: list) -> pd.DataFrame:
 
     # Write bad records to JSON
     if bad_records:
+        os.makedirs(os.path.dirname(ERROR_RECORDS), exist_ok=True)
         with open(ERROR_RECORDS, "w") as f:
             json.dump(bad_records, f, indent=2)
         logger.debug(f"Wrote {len(bad_records)} bad records to {ERROR_RECORDS}")
@@ -89,7 +90,7 @@ def insert_to_staging(df: pd.DataFrame):
             index=False
         )
 
-        logger.debug(f"Inserted {len(df)} records into staging_user_actions")
+        logger.debug(f"Inserted {len(df)} records into stg_logs")
         #move to processed after successful insertion
         move_to_processed()
     except SQLAlchemyError as e:
