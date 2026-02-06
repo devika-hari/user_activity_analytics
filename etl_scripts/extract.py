@@ -1,7 +1,7 @@
 import os
 import shutil
-from config import get_env
-from logging_config import setup_logging
+from etl_scripts.config import get_env,DB_URI
+from etl_scripts.logging_config import setup_logging
 import logging
 from datetime import datetime
 from sqlalchemy import create_engine
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 DATA_PATH = get_env("DATA_PATH")
 PROCESSED_PATH = get_env("PROCESSED_PATH")
 ERROR_RECORDS=get_env("ERROR_RECORDS")
-DB_URI = get_env("DB_URI")
+
 
 # Create SQLAlchemy engine-connection to db
 engine = create_engine(DB_URI)
@@ -45,8 +45,12 @@ def clean_records(raw_data: list) -> pd.DataFrame:
 
         # Convert timestamp
         iso_ts = parse_timestamp(record.get("timestamp", ""))
+        record["timestamp"] = iso_ts if iso_ts else None
+
         if not iso_ts:
             record["timestamp"]=None
+            print(record["timestamp"])
+
             logger.debug(f"Timestamp error in record: {record}.")
             continue
         record["timestamp"] = iso_ts
@@ -68,6 +72,7 @@ def clean_records(raw_data: list) -> pd.DataFrame:
         logger.debug(f"Wrote {len(bad_records)} bad records to {ERROR_RECORDS}")
 
     df = pd.DataFrame(cleaned)
+    df = df.where(pd.notna(df), None)
     logger.debug(f"Cleaned {len(df)} valid records out of {len(raw_data)}")
     return df
 
@@ -76,10 +81,15 @@ def insert_to_staging(df: pd.DataFrame):
     if df.empty:
         logger.debug("No records to insert into staging table")
         return
-
     try:
-        with engine.connect() as conn:
-            df.to_sql("stg_logs", conn,schema="staging", if_exists="append", index=False)
+        df.to_sql(
+            name="stg_logs",
+            con=engine,
+            schema="staging",
+            if_exists="append",
+            index=False
+        )
+
         logger.debug(f"Inserted {len(df)} records into staging_user_actions")
         #move to processed after successful insertion
         move_to_processed()
