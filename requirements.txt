@@ -1,0 +1,7 @@
+apache-airflow==2.10.2
+numpy==1.26.4
+pandas==1.5.3
+psycopg2==2.9.11
+python-dateutil==2.9.0.post0
+python-dotenv==1.2.1
+SQLAlchemy==1.4.54
